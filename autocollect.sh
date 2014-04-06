@@ -29,6 +29,13 @@ done
 echo "Waiting for processes: " ${pid_list[@]}
 wait ${pid_list[@]}
 cd $CUR_PATH
+
+if [ ! -d "stats" ]; then
+  # Control will enter here if $DIRECTORY doesn't exist. 
+   echo "Directory stats doesn't exists creating it..."
+   mkdir -p "stats"
+fi
+
 #Copying stuff
 for driver in "${drivers_list[@]}"
 do
