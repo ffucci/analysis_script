@@ -2,18 +2,19 @@
 
 if [ $# -eq 0 ]
   then
-    echo "Please put the list of the drivers to test in a file e pass as an argument"
+    echo "Please put the drivers list to test in a file and pass as an argument"
     exit 0
 fi
 
-EXEC_TIME=10
-#EXEC_TIME=$($EXEC_TIME*60)
+EXEC_TIME=$2
+EXEC_TIME=$((EXEC_TIME*60))
 FILE=$1 #name of the file
 old_IFS=$IFS
 IFS=$'\n'
 drivers_list=($(cat $FILE)) # array
 IFS=$old_IFS
 BASE_PATH="$HOME/s2e-websvc/s2e-websvc/smoke-tests/winxp"
+VANILLA_PATH="$HOME/current_websvc/s2e-websvc/smoke-tests/winxp"
 CUR_PATH=$(pwd)
 echo ${drivers_list[@]}
 pid_list=()
@@ -21,9 +22,16 @@ pid_list=()
 for driver in "${drivers_list[@]}"
 do
 	echo "Executing testsuite for driver:" ${driver}
+	echo "===============S2E TCI Interpreter=================="
+	echo
 	cd $BASE_PATH/$driver
-	timeout $EXEC_TIME ./launch.sh > /dev/null 2>&1 &
+	timeout $EXEC_TIME ./launch.sh > /dev/null 2>&1 & 
 	pid_list+=($!)
+	echo "=============== VANILLA S2E ========================"
+	echo
+	cd $VANILLA_PATH/$driver
+        timeout $EXEC_TIME ./launch.sh > /dev/null 2>&1 & 
+        pid_list+=($!)
 done 
 
 echo "Waiting for processes: " ${pid_list[@]}
@@ -40,7 +48,10 @@ fi
 for driver in "${drivers_list[@]}"
 do
 	echo "Copying stats for driver:" ${driver}
-	cp "$BASE_PATH/$driver/s2e-last/run.stats" "stats/$driver""_stat"
+	echo "Copying stats for TCI interpreter"
+	cp "$BASE_PATH/$driver/s2e-last/run.stats" "stats/$driver""_tci_stat"
+	echo "Copying stats for KLEE interpreter"
+	cp "$VANILLA_PATH/$driver/s2e-last/run.stats" "stats/$driver""_klee_stat"
 done 
 
 echo "=========Displaying graphs======"
