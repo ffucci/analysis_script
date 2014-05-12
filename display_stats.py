@@ -7,6 +7,8 @@ import csv
 import glob
 from sets import Set
 from mpltools import color
+from mpltools import layout
+import os
 
 global colors,pvalues
 pvalues = np.logspace(-1,0,4)
@@ -27,6 +29,15 @@ def autolabel(ax,rects):
     for rect in rects:
         height = rect.get_height()
         ax.text(rect.get_x()+rect.get_width()/2., 1.05*height, '%d'%int(height),
+                ha='center', va='bottom')
+
+def autolabel_pos(ax,rects,pos,perc,offset=None):
+    if offset == None:
+        offset = np.zeros(len(rects))
+    # attach some text labels
+    for i,rect in enumerate(rects):
+        height = rect.get_height()
+        ax.text(rect.get_x()+rect.get_width()/2., pos[i] - height/2 + offset[i], '%1.1f'%float(perc[i]) + '%',
                 ha='center', va='bottom')
 
 def first_graph(ind,vals1,vals2,width,drivers):
@@ -77,7 +88,8 @@ def first_graph(ind,vals1,vals2,width,drivers):
         p.savefig('perfom_eval.png')
 
 
-def second_graph(files,drivers,ind,width):
+def second_graph(files,drivers,ind,width,wall_time):
+
         global ind_1,ind_2, c_paths
         f_clust1 = [s for s in files if "tci" in s]
         f_clust2 = [s for s in files if "klee" in s]
@@ -94,8 +106,10 @@ def second_graph(files,drivers,ind,width):
         autolabel(a2,g3)
         p.legend((g2[0], g3[0]), ( "KLEE" , "TCI"), loc='best')
         a2.yaxis.grid(True)
+        file_name = "num_paths_" + str(int(wall_time/60));
+        p.savefig("results/"+file_name)
 
-def third_graph(vals,drivers,ind,width):
+def third_graph(vals,drivers,ind,width,wall_time):
         global ind_1,ind_2
         fig3,a3 = p.subplots()
         act_width = 3*width
@@ -114,9 +128,56 @@ def third_graph(vals,drivers,ind,width):
         p.ylim((0,alpha*max(ratio_time)))
         autolabel_float(a3,q1)
         a3.yaxis.grid(True)
-        p.savefig('')
+        file_name = "ratio_translation_time_llvm_tci_" + str(int(wall_time/60));
+        p.savefig("results/"+file_name)
 
+def fourth_graph(symb_tb,drivers,ind_1,ind_2,width,wall_time):
+        print symb_tb
+        fig3,a3 = p.subplots()
+        act_width = 2*width
+        alpha = 1.1
+        #The first is KLEE the second TCI
+        klee_num_tb = [np.float64(symb_tb[ind_1[i]][0]) for i in range(len(ind_1))]
+        tci_num_tb = [np.float64(symb_tb[ind_2[i]][0]) for i in range(len(ind_2))]
+        print klee_num_tb
+        ratio_tbs = np.array(klee_num_tb)/np.array(tci_num_tb)
+        print ratio_tbs
+        q1 = p.bar(ind_1+act_width/2,ratio_tbs,act_width,facecolor=colors(pvalues[-2]),edgecolor='white')
+        #q2 = p.bar(ind+width,tran_times2,width,color=colors(pvalues[-2]))
+        a3.set_xticks(ind_1+act_width)
+        a3.set_xticklabels(drivers,fontsize=10,rotation=0)
+        p.xlabel('Driver',fontsize=14)
+        p.ylabel('Ratio of number of translation blocks executed KLEE vs TCI')
+        p.ylim((0,alpha*max(ratio_tbs)))
+        autolabel_float(a3,q1)
+        a3.yaxis.grid(True)
+        file_name = "ratio_translation_blocks_klee_tci_" + str(int(wall_time/60));
+        p.savefig("results/"+file_name)
 
+def solver_graph(ind,vals1,vals2,width,drivers,wall_time):
+        figsize  = layout.figaspect(1.2)
+        fig,ax = p.subplots(figsize=figsize)
+        ax.set_xticks(ind+width)
+        ax.set_xticklabels(drivers,fontsize=10,rotation=0)
+        psolv = p.bar(ind,vals1[2],width,color=colors(pvalues[1]),edgecolor='white')
+        psolv2 = p.bar(ind+width,vals2[2],width,color=colors(pvalues[1]),edgecolor='white')
+        perc1 = 100*(vals1[2]/np.array(wall_time)[0:2:len(wall_time)])
+        perc2 = 100*(vals2[2]/np.array(wall_time)[1:2:len(wall_time)+1])
+        autolabel_pos(ax,psolv,vals1[2],perc1)
+        autolabel_pos(ax,psolv2,vals2[2],perc2)
+        remaining1 = (np.array(wall_time)[0:2:len(wall_time)] - np.array(vals1[2]))
+        remaining2 = (np.array(wall_time[1:2:len(wall_time)+1]) - np.array(vals2[2]))
+        perc1 = 100*remaining1/np.array(wall_time)[0:2:len(wall_time)]
+        perc2 = 100*remaining2/np.array(wall_time[1:2:len(wall_time)+1])
+        p2 = p.bar(ind,remaining1,width,color=colors(pvalues[2]),bottom=vals1[2],edgecolor='white')
+        p21 = p.bar(ind+width,remaining2,width,color=colors(pvalues[2]),bottom=vals2[2],edgecolor='white')
+        autolabel_pos(ax,p2,remaining1,perc1,vals1[2])
+        autolabel_pos(ax,p21,remaining2,perc2,vals2[2])
+        p.show()
+
+def instantiate_directory(dir):
+        if not os.path.exists(dir):
+            os.makedirs(dir)
 
 def get_graphs_tci(files,ms):
         data = []
@@ -154,12 +215,16 @@ def get_graphs_tci(files,ms):
         bb_number = []
         global c_paths
         c_paths = []
+        symb_tb = []
+
         num_paths = np.where(head == 'CompletedPaths')[0]
         index_num = np.where(head == 'TranslationBlocks')[0]
+        idx_symb_blocks = np.where(head == 'TranslationBlocksKlee')
         for j in range(len(files)):
             temp = mapping[files[j]]
             c_paths.append(temp[num_paths])
             bb_number.append(temp[index_num])
+            symb_tb.append(temp[idx_symb_blocks])
             #vals.append([np.asscalar(np.float64(data[j][i])) for i in idx])
             line = [np.asscalar(np.float64(temp[i])) for i in idx]
             vals[j] = line
@@ -205,11 +270,16 @@ def get_graphs_tci(files,ms):
         drivers = list(name_drivers)
         drivers.sort()
 
-        #first_graph(ind,vals1,vals2,width,drivers)
-        #Number of paths graph
-        second_graph(files,drivers,ind,width)
-        third_graph(vals,drivers,ind,width)
+        instantiate_directory("results")
 
+        #first_graph(ind,vals1,vals2,width,drivers)
+        solver_graph(ind,vals1,vals2,width,drivers,wall_time)
+        #Graph that shows the number of paths
+        second_graph(files,drivers,ind,width,wall_time[0])
+        #Ratio translation time LLVM vs TCI
+        third_graph(vals,drivers,ind,width,wall_time[0])
+        #Ratio number of blocks executed KLEE vs TCI
+        fourth_graph(symb_tb,drivers,ind_1,ind_2,width,wall_time[0])
 
 def process_data(args,b):
         ms = []
