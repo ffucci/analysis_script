@@ -19,6 +19,17 @@ CUR_PATH=$(pwd)
 echo ${drivers_list[@]}
 pid_list=()
 
+echo "Preparing the execution..."
+if [ ! -d "stats" ]; then
+  # Control will enter here if $DIRECTORY doesn't exist. 
+  echo "Directory stats doesn't exists creating it..."
+  mkdir -p "stats"
+fi
+
+#rm -f stats/*
+echo "Removing old results directory..."
+rm -rf results
+
 for driver in "${drivers_list[@]}"
 do
 	echo "Executing testsuite for driver:" ${driver}
@@ -37,12 +48,6 @@ done
 echo "Waiting for processes: " ${pid_list[@]}
 wait ${pid_list[@]}
 cd $CUR_PATH
-
-if [ ! -d "stats" ]; then
-  # Control will enter here if $DIRECTORY doesn't exist. 
-   echo "Directory stats doesn't exists creating it..."
-   mkdir -p "stats"
-fi
 
 #Copying stuff
 for driver in "${drivers_list[@]}"
