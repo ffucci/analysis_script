@@ -11,7 +11,7 @@ from mpltools import layout
 import os
 
 global colors,pvalues
-pvalues = np.logspace(-1,0,4)
+pvalues = np.logspace(-1,0,6)
 parameter_range = (pvalues[0],pvalues[-1])
 colors = color.color_mapper(parameter_range,cmap='BuPu',start=0.2)
 
@@ -89,7 +89,6 @@ def first_graph(ind,vals1,vals2,width,drivers):
 
 
 def second_graph(files,drivers,ind,width,wall_time):
-
         global ind_1,ind_2, c_paths
         f_clust1 = [s for s in files if "tci" in s]
         f_clust2 = [s for s in files if "klee" in s]
@@ -139,8 +138,8 @@ def fourth_graph(symb_tb,drivers,ind_1,ind_2,width,wall_time):
         #The first is KLEE the second TCI
         klee_num_tb = [np.float64(symb_tb[ind_1[i]][0]) for i in range(len(ind_1))]
         tci_num_tb = [np.float64(symb_tb[ind_2[i]][0]) for i in range(len(ind_2))]
-        print klee_num_tb
-        ratio_tbs = np.array(klee_num_tb)/np.array(tci_num_tb)
+        print "KLEE tb:", klee_num_tb
+        ratio_tbs = np.array(tci_num_tb)/np.array(klee_num_tb)
         print ratio_tbs
         q1 = p.bar(ind_1+act_width/2,ratio_tbs,act_width,facecolor=colors(pvalues[-2]),edgecolor='white')
         #q2 = p.bar(ind+width,tran_times2,width,color=colors(pvalues[-2]))
@@ -154,26 +153,69 @@ def fourth_graph(symb_tb,drivers,ind_1,ind_2,width,wall_time):
         file_name = "ratio_translation_blocks_klee_tci_" + str(int(wall_time/60));
         p.savefig("results/"+file_name)
 
-def solver_graph(ind,vals1,vals2,width,drivers,wall_time):
+def breakdown_graph(ind,vals,mapping,files,tci_time,klee_time,width,drivers,wall_time):
+        tci_time = np.array([np.float64(i[0]) for i in tci_time])
+        klee_time = np.array([np.float64(i[0]) for i in klee_time])
+        vals1 = []
+        vals2 = []
+        for i in range(0,len(vals)):
+            temp = mapping[files[i]]
+            vals1.append([vals[i].tolist()[ind_1[j]] for j in range(len(ind_1))])
+            vals2.append([vals[i].tolist()[ind_2[j]] for j in range(len(ind_2))])
         figsize  = layout.figaspect(1.2)
         fig,ax = p.subplots(figsize=figsize)
         ax.set_xticks(ind+width)
         ax.set_xticklabels(drivers,fontsize=10,rotation=0)
-        psolv = p.bar(ind,vals1[2],width,color=colors(pvalues[1]),edgecolor='white')
-        psolv2 = p.bar(ind+width,vals2[2],width,color=colors(pvalues[1]),edgecolor='white')
+        psolv = p.bar(ind,vals1[2],width,color=colors(pvalues[0]),edgecolor='white')
+        psolv2 = p.bar(ind+width,vals2[2],width,color=colors(pvalues[0]),edgecolor='white')
         perc1 = 100*(vals1[2]/np.array(wall_time)[0:2:len(wall_time)])
         perc2 = 100*(vals2[2]/np.array(wall_time)[1:2:len(wall_time)+1])
         autolabel_pos(ax,psolv,vals1[2],perc1)
         autolabel_pos(ax,psolv2,vals2[2],perc2)
-        remaining1 = (np.array(wall_time)[0:2:len(wall_time)] - np.array(vals1[2]))
-        remaining2 = (np.array(wall_time[1:2:len(wall_time)+1]) - np.array(vals2[2]))
+        print "Vals2: ",vals[2]
+        print "TCI time:",tci_time
+        print "KLEE time:",klee_time
+        #Separate timing
+        tci1 = [tci_time[ind_1[j]] for j in range(len(ind_1))]
+        tci2 = [tci_time[ind_2[j]] for j in range(len(ind_2))]
+        klee1 = [klee_time[ind_1[j]] for j in range(len(ind_1))]
+        klee2 = [klee_time[ind_2[j]] for j in range(len(ind_2))]
+        #Create bar
+        #ptci = p.bar(ind,tci1,width,color=colors(pvalues[1]),bottom=vals1[2],edgecolor='white')
+        #ptci2 = p.bar(ind+width,tci2,width,color=colors(pvalues[1]),bottom=vals2[2],edgecolor='white')
+
+        #perc1 = 100*(tci1/np.array(wall_time)[0:2:len(wall_time)])
+        #perc2 = 100*(tci2/np.array(wall_time)[1:2:len(wall_time)+1])
+        #perc2 = 100*(klee_time[1:2:len(wall_time)+1]/np.array(wall_time)[1:2:len(wall_time)+1])
+        #autolabel_pos(ax,ptci,tci1,perc1,vals1[2])
+        #autolabel_pos(ax,ptci2,tci2,perc2,vals2[2])
+        int_time = np.array(klee1)+np.array(tci1)
+        int_time2 = np.array(klee2)+np.array(tci2)
+        pint = p.bar(ind,int_time,width,color=colors(pvalues[2]),bottom=np.array(vals1[2]),edgecolor='white')
+        pint2 = p.bar(ind+width,int_time2,width,color=colors(pvalues[2]),bottom=np.array(vals2[2]),edgecolor='white')
+        perc1 = 100*(int_time/np.array(wall_time)[0:2:len(wall_time)])
+        perc2 = 100*(int_time2/np.array(wall_time)[1:2:len(wall_time)+1])
+        print np.array(vals2[2])+ np.array(tci2)
+        autolabel_pos(ax,pint,int_time,perc1,np.array(vals1[2]))
+        autolabel_pos(ax,pint2,int_time2,perc2,np.array(vals2[2]))
+
+        remaining1 = (np.array(wall_time)[0:2:len(wall_time)] - np.array(vals1[2]) - np.array(klee1))
+        remaining2 = (np.array(wall_time[1:2:len(wall_time)+1]) - np.array(vals2[2]) - np.array(tci2) - klee2)
         perc1 = 100*remaining1/np.array(wall_time)[0:2:len(wall_time)]
         perc2 = 100*remaining2/np.array(wall_time[1:2:len(wall_time)+1])
-        p2 = p.bar(ind,remaining1,width,color=colors(pvalues[2]),bottom=vals1[2],edgecolor='white')
-        p21 = p.bar(ind+width,remaining2,width,color=colors(pvalues[2]),bottom=vals2[2],edgecolor='white')
-        autolabel_pos(ax,p2,remaining1,perc1,vals1[2])
-        autolabel_pos(ax,p21,remaining2,perc2,vals2[2])
-        p.show()
+        off1 = np.array(vals1[2])+ np.array(tci1)+np.array(klee1)
+        off2 = np.array(vals2[2])+ np.array(tci2)+np.array(klee2)
+        p2 = p.bar(ind,remaining1,width,color=colors(pvalues[3]),bottom=off1,edgecolor='white')
+        p21 = p.bar(ind+width,remaining2,width,color=colors(pvalues[3]),bottom=off2,edgecolor='white')
+        autolabel_pos(ax,p2,remaining1,perc1,off1)
+        autolabel_pos(ax,p21,remaining2,perc2,off2)
+        ax.yaxis.grid(True)
+        p.xlabel("Drivers")
+        p.ylabel("% of time")
+        p.legend((psolv[0], pint[0], p2[0]), ( "Solving Time" , "Interpretation Time" , "Remaining Time"), loc='best')
+        file_name = "breakdown_klee_tci_" + str(int(wall_time[0]/60));
+        p.savefig("results/"+file_name)
+        #p.show()
 
 def instantiate_directory(dir):
         if not os.path.exists(dir):
@@ -183,16 +225,21 @@ def get_graphs_tci(files,ms):
         data = []
         global head,idx
         head = []
+        head2 = []
         mapping = {}
         files = [ s.replace('stats/','') for s in files]
         print "Map: ", mapping
         i = 0
-        for f in ms:
-            head = f[0]
+        for i,f in enumerate(ms):
+            print files[i]
+            if i == 0:
+                head = f[0]
+            if i == 1:
+                head2 = f[0]
             data.append(f[-1])
             mapping[files[i]] = data[i]
-            i = i+1
-
+        print head
+        print head2
         files = sorted(mapping)
         tci_index = np.where(head == 'TCITranslationTime')
         llvm_index = np.where(head == 'LLVMTranslationTime')
@@ -216,21 +263,27 @@ def get_graphs_tci(files,ms):
         global c_paths
         c_paths = []
         symb_tb = []
-
+        tci_time = []
+        klee_time = []
         num_paths = np.where(head == 'CompletedPaths')[0]
         index_num = np.where(head == 'TranslationBlocks')[0]
         idx_symb_blocks = np.where(head == 'TranslationBlocksKlee')
+        idx_tci_time = np.where(head == 'CumulativeTCIInterpretationTime')
+        idx_klee_time = np.where(head == 'CumulativeKLEEInterpretationTime')
+        print idx_tci_time
+        print idx_klee_time
         for j in range(len(files)):
             temp = mapping[files[j]]
             c_paths.append(temp[num_paths])
             bb_number.append(temp[index_num])
             symb_tb.append(temp[idx_symb_blocks])
+            tci_time.append(temp[idx_tci_time])
+            klee_time.append(temp[idx_klee_time])
             #vals.append([np.asscalar(np.float64(data[j][i])) for i in idx])
             line = [np.asscalar(np.float64(temp[i])) for i in idx]
             vals[j] = line
         c_paths = [np.asscalar(np.float64(c_paths[i])) for i in range(len(c_paths))]
         print "Completed paths: ", c_paths
-
         percentage = []
         name_drivers = Set()
         print files
@@ -273,7 +326,7 @@ def get_graphs_tci(files,ms):
         instantiate_directory("results")
 
         #first_graph(ind,vals1,vals2,width,drivers)
-        solver_graph(ind,vals1,vals2,width,drivers,wall_time)
+        breakdown_graph(ind,vals,mapping,files,tci_time,klee_time,width,drivers,wall_time)
         #Graph that shows the number of paths
         second_graph(files,drivers,ind,width,wall_time[0])
         #Ratio translation time LLVM vs TCI
