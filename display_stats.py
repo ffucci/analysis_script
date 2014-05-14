@@ -14,6 +14,7 @@ global colors,pvalues
 pvalues = np.logspace(-1,0,6)
 parameter_range = (pvalues[0],pvalues[-1])
 colors = color.color_mapper(parameter_range,cmap='BuPu',start=0.2)
+colors2 = color.color_mapper(parameter_range,cmap='PuOr',start=0.2)
 
 
 def autolabel_float(ax,rects):
@@ -131,10 +132,10 @@ def third_graph(vals,drivers,ind,width,wall_time):
         p.savefig("results/"+file_name)
 
 def fourth_graph(symb_tb,drivers,ind_1,ind_2,width,wall_time):
-        print symb_tb
-        fig3,a3 = p.subplots()
+        figsize = layout.figaspect(1.4)
+        fig3,a3 = p.subplots(figsize=figsize)
         act_width = 2*width
-        alpha = 1.1
+        alpha = 1.3
         #The first is KLEE the second TCI
         klee_num_tb = [np.float64(symb_tb[ind_1[i]][0]) for i in range(len(ind_1))]
         tci_num_tb = [np.float64(symb_tb[ind_2[i]][0]) for i in range(len(ind_2))]
@@ -146,7 +147,7 @@ def fourth_graph(symb_tb,drivers,ind_1,ind_2,width,wall_time):
         a3.set_xticks(ind_1+act_width)
         a3.set_xticklabels(drivers,fontsize=10,rotation=0)
         p.xlabel('Driver',fontsize=14)
-        p.ylabel('Ratio of number of translation blocks executed KLEE vs TCI')
+        p.ylabel('Ratio of number of translation blocks executed TCI vs KLEE')
         p.ylim((0,alpha*max(ratio_tbs)))
         autolabel_float(a3,q1)
         a3.yaxis.grid(True)
@@ -167,7 +168,7 @@ def breakdown_graph(ind,vals,mapping,files,tci_time,klee_time,width,drivers,wall
         ax.set_xticks(ind+width)
         ax.set_xticklabels(drivers,fontsize=10,rotation=0)
         psolv = p.bar(ind,vals1[2],width,color=colors(pvalues[0]),edgecolor='white')
-        psolv2 = p.bar(ind+width,vals2[2],width,color=colors(pvalues[0]),edgecolor='white')
+        psolv2 = p.bar(ind+width,vals2[2],width,color=colors2(pvalues[0]),edgecolor='white')
         perc1 = 100*(vals1[2]/np.array(wall_time)[0:2:len(wall_time)])
         perc2 = 100*(vals2[2]/np.array(wall_time)[1:2:len(wall_time)+1])
         autolabel_pos(ax,psolv,vals1[2],perc1)
@@ -192,7 +193,7 @@ def breakdown_graph(ind,vals,mapping,files,tci_time,klee_time,width,drivers,wall
         int_time = np.array(klee1)+np.array(tci1)
         int_time2 = np.array(klee2)+np.array(tci2)
         pint = p.bar(ind,int_time,width,color=colors(pvalues[2]),bottom=np.array(vals1[2]),edgecolor='white')
-        pint2 = p.bar(ind+width,int_time2,width,color=colors(pvalues[2]),bottom=np.array(vals2[2]),edgecolor='white')
+        pint2 = p.bar(ind+width,int_time2,width,color=colors2(pvalues[2]),bottom=np.array(vals2[2]),edgecolor='white')
         perc1 = 100*(int_time/np.array(wall_time)[0:2:len(wall_time)])
         perc2 = 100*(int_time2/np.array(wall_time)[1:2:len(wall_time)+1])
         print np.array(vals2[2])+ np.array(tci2)
@@ -206,14 +207,16 @@ def breakdown_graph(ind,vals,mapping,files,tci_time,klee_time,width,drivers,wall
         off1 = np.array(vals1[2])+ np.array(tci1)+np.array(klee1)
         off2 = np.array(vals2[2])+ np.array(tci2)+np.array(klee2)
         p2 = p.bar(ind,remaining1,width,color=colors(pvalues[3]),bottom=off1,edgecolor='white')
-        p21 = p.bar(ind+width,remaining2,width,color=colors(pvalues[3]),bottom=off2,edgecolor='white')
+        p21 = p.bar(ind+width,remaining2,width,color=colors2(pvalues[3]),bottom=off2,edgecolor='white')
         autolabel_pos(ax,p2,remaining1,perc1,off1)
         autolabel_pos(ax,p21,remaining2,perc2,off2)
         ax.yaxis.grid(True)
         p.xlabel("Drivers")
         p.ylabel("% of time")
+        alpha = 1.2
         p.legend((psolv[0], pint[0], p2[0]), ( "Solving Time" , "Interpretation Time" , "Remaining Time"), loc='best')
         file_name = "breakdown_klee_tci_" + str(int(wall_time[0]/60));
+        p.ylim((0,alpha*max(wall_time)))
         p.savefig("results/"+file_name)
         #p.show()
 
